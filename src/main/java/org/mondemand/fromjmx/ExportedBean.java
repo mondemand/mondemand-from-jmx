@@ -1,4 +1,3 @@
-// Copyright OpenX Limited 2010. All Rights Reserved.
 package org.mondemand.fromjmx;
 
 import java.util.ArrayList;

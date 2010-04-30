@@ -15,7 +15,9 @@ import javax.management.AttributeList;
 import javax.management.JMException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
+import javax.management.MBeanServer;
 import javax.management.MBeanServerConnection;
+import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.CompositeType;
@@ -110,20 +112,14 @@ public class JmxStatExporter {
    * Get all the exported stats.
    * @return
    */
-  public List<ExportedStat> getExportedStats() {
+  public List<ExportedStat> getExportedStats() throws IOException, JMException {
     List<ExportedStat> exportedStats = new ArrayList<ExportedStat>(50);
 
     for (Entry<ObjectName,Attributes> oNameAttrs : oNameAttrsMap.entrySet()) {
-      try {
-        ObjectName oName = oNameAttrs.getKey();
-        Attributes attrs = oNameAttrs.getValue();
-        AttributeList attrList = beanServer.getAttributes(oName, attrs.asArray);
-        addExportedStats(attrs, attrList, exportedStats);
-      } catch (IOException e) {
-        e.printStackTrace();
-      } catch (JMException e) {
-        e.printStackTrace();
-      }
+      ObjectName oName = oNameAttrs.getKey();
+      Attributes attrs = oNameAttrs.getValue();
+      AttributeList attrList = beanServer.getAttributes(oName, attrs.asArray);
+      addExportedStats(attrs, attrList, exportedStats);
     }
 
     return exportedStats;
@@ -226,7 +222,7 @@ public class JmxStatExporter {
    * @param exportedBeans
    * @return
    */
-  protected Map<ObjectName,Attributes> toMap(List<ExportedBean> exportedBeans) {
+  protected Map<ObjectName,Attributes> toMap(List<ExportedBean> exportedBeans) throws IOException {
     Map<ObjectName,Attributes> oNameAttrsMap = new HashMap<ObjectName,Attributes>();
     
     Set<ObjectName> oNames = null;
@@ -247,8 +243,8 @@ public class JmxStatExporter {
           }
         }
         
-      } catch (Exception e) {
-        e.printStackTrace();
+      } catch (MalformedObjectNameException e) {
+        System.err.println(String.format("'%s' is not a valid ObjectName.", exportedBean.getObjectNameIdentifier()));
       }
     }
     
