@@ -1,7 +1,6 @@
 package org.mondemand.fromjmx;
 
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -16,21 +15,17 @@ import javax.management.JMException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
-import javax.management.MBeanServerConnection;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.CompositeType;
-import javax.management.remote.JMXConnector;
-import javax.management.remote.JMXConnectorFactory;
-import javax.management.remote.JMXServiceURL;
 
 /**
  * Exports JMX statistics from a JVM to mondemand.
  *  
  * @author Joel Meyer (joel.meyer@openx.org)
  */
-public class JmxStatExporter {
+public class JmxStatProvider {
   protected static final String SEPARATOR = ".";
 
   protected static class Attributes {
@@ -41,14 +36,14 @@ public class JmxStatExporter {
 
   protected final List<ExportedBean> exportedBeans;
   protected final Map<ObjectName, Attributes> oNameAttrsMap;
-  protected final MBeanServerConnection beanServer;
+  protected final MBeanServerProvider mbeanServerProvider;
 
   /**
    * Constructor. Connects to the local JVM and gets all exportable attributes.
    * @throws IOException
    */
-  public JmxStatExporter() throws IOException {
-    this.beanServer = ManagementFactory.getPlatformMBeanServer();
+  public JmxStatProvider(MBeanServerProvider mbeanServerProvider) throws IOException {
+    this.mbeanServerProvider = mbeanServerProvider;
     this.oNameAttrsMap = queryAttrs();
     this.exportedBeans = toExportedBeanList(oNameAttrsMap);
   }
@@ -60,44 +55,12 @@ public class JmxStatExporter {
    * @throws IOException If there is a problem getting any of the
    *                     specified beans/properties.
    */
-  public JmxStatExporter(List<ExportedBean> exportedBeans) throws IOException {
-    this.beanServer = ManagementFactory.getPlatformMBeanServer();
+  public JmxStatProvider(List<ExportedBean> exportedBeans, MBeanServerProvider mbeanServerProvider) throws IOException {
+    this.mbeanServerProvider = mbeanServerProvider;
     this.oNameAttrsMap = toMap(exportedBeans);
     this.exportedBeans = exportedBeans;
   }
 
-  /**
-   * Constructor. Connects to the JVM at the given host and port.
-   * Gets all exportable attributes.
-   * @param host Host the JVM is running on.
-   * @param port Port the JVM is listening for JMX connections on.
-   * @throws IOException If there is a problem connecting to the JVM.
-   */
-  public JmxStatExporter(String host, int port) throws IOException {
-    JMXServiceURL jmxURL = new JMXServiceURL("service:jmx:rmi:///jndi/rmi://" + host + ":" + port + "/jmxrmi");
-    JMXConnector jmxConnector = JMXConnectorFactory.connect(jmxURL);
-    this.beanServer = jmxConnector.getMBeanServerConnection();
-    this.oNameAttrsMap = queryAttrs();
-    this.exportedBeans = toExportedBeanList(oNameAttrsMap);
-  }
-
-  /**
-   * Constructor. Connects to the JVM at the given host and port.
-   * Attempts to get the specified exportable properties.
-   * @param host Host the JVM is running on.
-   * @param port Port the JVM is listening for JMX connections on.
-   * @param exportedBeans The beans/properties to export.
-   * @throws IOException If there is a problem connecting to the JVM or
-   *                     getting any of the specified beans/properties.
-   */
-  public JmxStatExporter(String host, int port, List<ExportedBean> exportedBeans) throws IOException {
-    JMXServiceURL jmxURL = new JMXServiceURL("service:jmx:rmi:///jndi/rmi://" + host + ":" + port + "/jmxrmi");
-    JMXConnector jmxConnector = JMXConnectorFactory.connect(jmxURL);
-    this.beanServer = jmxConnector.getMBeanServerConnection();
-    this.oNameAttrsMap = toMap(exportedBeans);
-    this.exportedBeans = exportedBeans;
-  }
-  
   /**
    * If a list of {@link ExportedBean}'s was passed in, this method will
    * return that list. If no list was provided, this method will return
@@ -118,7 +81,7 @@ public class JmxStatExporter {
     for (Entry<ObjectName,Attributes> oNameAttrs : oNameAttrsMap.entrySet()) {
       ObjectName oName = oNameAttrs.getKey();
       Attributes attrs = oNameAttrs.getValue();
-      AttributeList attrList = beanServer.getAttributes(oName, attrs.asArray);
+      AttributeList attrList = mbeanServerProvider.getMBeanServer().getAttributes(oName, attrs.asArray);
       addExportedStats(attrs, attrList, exportedStats);
     }
 
@@ -185,7 +148,7 @@ public class JmxStatExporter {
   }
   
   /**
-   * Recursively calls {@link JmxStatExporter.initAttrNameArray} on an
+   * Recursively calls {@link JmxStatProvider.initAttrNameArray} on an
    * {@link Attributes} object.
    * @param attrs
    */
@@ -229,7 +192,7 @@ public class JmxStatExporter {
     
     for (ExportedBean exportedBean : exportedBeans) {
       try {
-        oNames = beanServer.queryNames(new ObjectName(exportedBean.getObjectNameIdentifier()), null);
+        oNames = mbeanServerProvider.getMBeanServer().queryNames(new ObjectName(exportedBean.getObjectNameIdentifier()), null);
         
         for (ObjectName oName : oNames) {
           Attributes attrs = oNameAttrsMap.get(oName);
@@ -331,12 +294,12 @@ public class JmxStatExporter {
    * @throws IOException
    */
   protected Map<ObjectName,Attributes> queryAttrs() throws IOException {
-    Set<ObjectName> oNames = beanServer.queryNames(null, null);
+    Set<ObjectName> oNames = mbeanServerProvider.getMBeanServer().queryNames(null, null);
 
     Map<ObjectName,Attributes> oNameAttrsMap = new HashMap<ObjectName,Attributes>();
     for (ObjectName oName : oNames) {
       try {
-        MBeanInfo beanInfo = beanServer.getMBeanInfo(oName);
+        MBeanInfo beanInfo = mbeanServerProvider.getMBeanServer().getMBeanInfo(oName);
 
         List<String> attrNameList = new ArrayList<String>();
         for (MBeanAttributeInfo attrInfo : beanInfo.getAttributes()) {
@@ -346,7 +309,7 @@ public class JmxStatExporter {
         String[] attrNameAry = new String[attrNameList.size()];
         attrNameList.toArray(attrNameAry);
 
-        Attributes attrs = getAttrs(getName(oName), beanServer.getAttributes(oName, attrNameAry));
+        Attributes attrs = getAttrs(getName(oName), mbeanServerProvider.getMBeanServer().getAttributes(oName, attrNameAry));
 
         if (attrs != null) {
           oNameAttrsMap.put(oName, attrs);
