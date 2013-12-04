@@ -49,7 +49,4 @@ FW_RPM_CREATEREPO_INCREMENTAL=${FW_RPM_CREATEREPO_INCREMENTAL-"auto"}
 # these commands will be run after a successful createrepo run
 FW_RPM_POSTCREATEREPO_COMMANDS=${FW_RPM_POSTCREATEREPO_COMMANDS-"true"}
 # here's a suggestion:
-# FW_RPM_POSTCREATEREPO_COMMANDS="gpg --detach-sign --armor repodata/repomd.xml" 
-
-# set to the directory in which version-named tags will be created
-FW_SUBVERSION_TAG_ROOT="https://mondemand.svn.sourceforge.net/svnroot/mondemand/mondemand-from-jmx/tags"
+# FW_RPM_POSTCREATEREPO_COMMANDS="gpg --detach-sign --armor repodata/repomd.xml"

@@ -14,7 +14,7 @@ if test -z "$fwb"
     exit 1
   fi
 
-"$fwb" --fw_version "0.2.7" --name mondemand-from-jmx --revision svn --template script --svn_project_path https://mondemand.svn.sourceforge.net/svnroot/mondemand/mondemand-from-jmx/trunk --svn_tag_root https://mondemand.svn.sourceforge.net/svnroot/mondemand/mondemand-from-jmx/tags "$@"
+"$fwb" --fw_version "0.2.7" --name mondemand-from-jmx --revision git --template script "$@"
 
 (
   rm create-package &&
